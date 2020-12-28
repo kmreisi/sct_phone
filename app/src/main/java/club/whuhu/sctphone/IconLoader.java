@@ -8,14 +8,21 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.util.Base64;
 
+import com.spotify.protocol.client.Result;
+import com.spotify.protocol.types.Image;
+import com.spotify.protocol.types.ImageUri;
+
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+import club.whuhu.Config;
 import club.whuhu.jrpc.JRPC;
+import club.whuhu.sctphone.gen.ui.SpotifyApp;
 
 public class IconLoader {
     private static IconLoader instance;
@@ -90,6 +97,25 @@ public class IconLoader {
                 Map<String, Object> data = (Map<String, Object>) params;
                 String md5 = (String) data.get("icon_md5");
                 String base = icons.get(md5);
+
+                // XXX: we should have a proper singleton for this
+                // Short hack to load images on demand from spotify
+                if (Config.SPOTIFY_CLIENT_ID != null && base == null) {
+                    // file does not exist, if a URI it might be required to fetch it
+                    try {
+                        ImageUri uri = new ImageUri(md5);
+                        Result<Bitmap> b = SpotifyApp.spotify.getImagesApi().getImage(uri, Image.Dimension.THUMBNAIL).await(1000, TimeUnit.MILLISECONDS);
+                        if (b.isSuccessful()) {
+                            // register
+                            byte[] png = toPng(b.getData());
+                            base = toBase(png);
+                            icons.put(md5, base);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+
                 if (base != null) {
                     Map<String, String> response = new HashMap<>();
                     data.put("icon", base);
@@ -98,6 +124,7 @@ public class IconLoader {
                     r.send(data);
                     return;
                 }
+
                 r.send(null);
             }
         });
@@ -116,7 +143,6 @@ public class IconLoader {
 
         return hash;
     }
-
 
     public String getIconMd5(Icon icon) {
         if (icon == null) {
@@ -141,6 +167,11 @@ public class IconLoader {
 
         if (icon instanceof Bitmap) {
             return getIconMd5((Bitmap) icon);
+        }
+
+        if (icon instanceof ImageUri) {
+            // the icon will be fetched from spotify on client request
+            return ((ImageUri) icon).raw;
         }
 
         return null;

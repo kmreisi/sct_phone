@@ -35,7 +35,7 @@ import club.whuhu.sctphone.gen.ui.MenuItem;
 public class SpotifyApp extends GenApp {
 
 
-    private static Bitmap getBitmap(ListItem item) {
+    private static ImageUri getImageUri(ListItem item) {
         if (item.imageUri == null) {
             return null;
         }
@@ -44,16 +44,7 @@ public class SpotifyApp extends GenApp {
             return null;
         }
 
-        try {
-            Result<Bitmap> b = spotify.getImagesApi().getImage(item.imageUri, Image.Dimension.THUMBNAIL).await(1000, TimeUnit.MILLISECONDS);
-            if (b.isSuccessful()) {
-                return b.getData();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return null;
+        return item.imageUri;
     }
 
     private static String getTitle(ListItem item) {
@@ -115,13 +106,13 @@ public class SpotifyApp extends GenApp {
         }
 
         public ListEntry(ListItem item) {
-            super(item.title, SpotifyApp.getText(item), getBitmap(item), ID, getCmd1(item), getCmd2(item), toData(item.id));
+            super(item.title, SpotifyApp.getText(item), getImageUri(item), ID, getCmd1(item), getCmd2(item), toData(item.id));
         }
     }
 
 
     public static final String ID = "spotify";
-    private static SpotifyAppRemote spotify;
+    public static SpotifyAppRemote spotify;
 
 
     public SpotifyApp(final AgentService ctx, JRPC jrpc) {
