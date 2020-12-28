@@ -19,9 +19,9 @@ public enum Direction {
     Straight;
 
     //9a47aad7ccf3cff40df15787e123980a
-    private static final String MD5_CONTINUE_BMP =  "c9961227e231985146bc38695e79bfbb";
-    private static final String MD5_LEFT_BMP =  "112c7a8155d627c663fd49f72c84ca71";
-    private static final String MD5_RIGHT_BMP =  "ae8f35e653bb79c660b6a28fe46c5bfa";
+    private static final String MD5_CONTINUE_BMP = "c9961227e231985146bc38695e79bfbb";
+    private static final String MD5_LEFT_BMP = "112c7a8155d627c663fd49f72c84ca71";
+    private static final String MD5_RIGHT_BMP = "ae8f35e653bb79c660b6a28fe46c5bfa";
 
 
     private static String bitmap_to_md5(Drawable d) {
@@ -32,14 +32,14 @@ public enum Direction {
         BitmapDrawable bd = (BitmapDrawable) d;
         Bitmap b = bd.getBitmap();
         if (b == null) {
-            return  null;
+            return null;
         }
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         b.compress(Bitmap.CompressFormat.PNG, 100, baos); //bm is the bitmap object
         byte[] bitmapBytes = baos.toByteArray();
 
-        String s = new String (bitmapBytes);
+        String s = new String(bitmapBytes);
 
         MessageDigest m = null;
 
@@ -49,7 +49,7 @@ public enum Direction {
             e.printStackTrace();
         }
 
-        m.update(s.getBytes(),0,s.length());
+        m.update(s.getBytes(), 0, s.length());
         String hash = new BigInteger(1, m.digest()).toString(16);
         return hash;
     }

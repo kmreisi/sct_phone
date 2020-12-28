@@ -13,14 +13,22 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
+import com.spotify.android.appremote.api.ConnectionParams;
+import com.spotify.android.appremote.api.Connector;
+import com.spotify.android.appremote.api.ContentApi;
+import com.spotify.android.appremote.api.SpotifyAppRemote;
+import com.spotify.protocol.client.CallResult;
+import com.spotify.protocol.types.ListItem;
+import com.spotify.protocol.types.ListItems;
+
 public class MainActivity extends AppCompatActivity {
 
     public Boolean verifyNotificationPermission() {
         String theList = android.provider.Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
         String[] theListList = theList.split(":");
         String me = (new ComponentName(this, NotificationListener.class)).flattenToString();
-        for ( String next : theListList ) {
-            if ( me.equals(next) ) return true;
+        for (String next : theListList) {
+            if (me.equals(next)) return true;
         }
         return false;
     }
@@ -36,12 +44,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE},
-                    666);
-
-
-
-
+                new String[]{Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE},
+                666);
 
         Button buttonStart = findViewById(R.id.buttonStart);
         Button buttonStop = findViewById(R.id.buttonStop);

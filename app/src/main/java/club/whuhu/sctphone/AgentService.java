@@ -12,6 +12,10 @@ import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 
+import com.spotify.android.appremote.api.ConnectionParams;
+import com.spotify.android.appremote.api.Connector;
+import com.spotify.android.appremote.api.SpotifyAppRemote;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +24,7 @@ import java.util.Map;
 import club.whuhu.jrpc.JRPC;
 import club.whuhu.jrpc.Link;
 import club.whuhu.jrpc.Server;
+import club.whuhu.sctphone.gen.ui.GenUi;
 
 public class AgentService extends Service {
     public static final String CHANNEL_ID = "sct_notification_channel";
@@ -32,7 +37,7 @@ public class AgentService extends Service {
 
         @Override
         public void connected() {
-
+            NotificationListener.sendActiveNotifications();
         }
 
         @Override
@@ -59,81 +64,29 @@ public class AgentService extends Service {
     });
 
     public static void send(JRPC.Notification notification) {
-         eventServer.getJrpc().send(notification);
+        eventServer.getJrpc().send(notification);
     }
 
-   public AgentService() {
-       eventServer.getJrpc().register("get_places", new JRPC.Method() {
-           @Override
-           public void call(JRPC.Response r, Object params) throws JRPC.Error {
-               List<Object> places = new ArrayList<>();
-               {
-                   Map<String, String> place = new HashMap<>();
-                   place.put("name", "Ulmer Münster" );
-                   place.put("uri", "Münsterplatz 21, 89073 Ulm" );
-                   places.add(place);
-               }
-               {
-                   Map<String, String> place = new HashMap<>();
-                   place.put("name", "Murphy's Law" );
-                   place.put("uri", "Keltergasse 3, 89073 Ulm" );
-                   places.add(place);
-               }
-               {
-                   Map<String, String> place = new HashMap<>();
-                   place.put("name", "Donauhalle Ulm" );
-                   place.put("uri", "Böfinger Str. 50, 89073 Ulm" );
-                   places.add(place);
-               }
-               {
-                   Map<String, String> place = new HashMap<>();
-                   place.put("name", "Museum der Brotkultur" );
-                   place.put("uri", "Salzstadelgasse 10, 89073 Ulm" );
-                   places.add(place);
-               }
-               {
-                   Map<String, String> place = new HashMap<>();
-                   place.put("name", "Bier-Akademie" );
-                   place.put("uri", "Baurengasse 10, 89073 Ulm" );
-                   places.add(place);
-               }
+    public AgentService() {
+        eventServer.getJrpc().register("notification_action", new JRPC.Method() {
+            @Override
+            public void call(JRPC.Response r, Object params) throws JRPC.Error {
+                PendingIntent intent = NotificationListener.getNotificationAction(params);
+                if (intent == null) {
+                    return;
+                }
 
-               r.send(places);
-           }
-       });
+                try {
+                    intent.send();
+                } catch (Exception e) {
+                }
 
+                r.send(params);
+            }
+        });
 
-       eventServer.getJrpc().register("navigate", new JRPC.Method() {
-           @Override
-           public void call(JRPC.Response r, Object params) throws JRPC.Error {
-               System.out.println("NAVIGATE TO" + params);
-
-               Map<String, String> data = (Map<String, String>)params;
-              Uri gmmIntentUri = Uri.parse("google.navigation:q=" +data.get("uri"));
-               Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
-               mapIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-
-               mapIntent.setPackage("com.google.android.apps.maps");
-               startActivity(mapIntent);
-
-               r.send(params);
-           }
-       });
-
-
-       iconServer.getJrpc().register("get_icon", new JRPC.Method() {
-           @Override
-           public void call(JRPC.Response r, Object params) throws JRPC.Error {
-               Map<String, Object> data = (Map<String, Object>) params;
-               String md5 = (String) data.get("icon_md5");
-               String base = NotificationListener.icons.get(md5);
-               data.put("icon", base);
-               System.out.println("XXXXXXXXXXXXXXXXXXX SEND " + base.length());
-
-               r.send(data);
-           }
-       });
-   }
+        IconLoader.getInstance().init(this, iconServer.getJrpc());
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -160,6 +113,8 @@ public class AgentService extends Service {
 
         eventServer.start();
         iconServer.start();
+
+        new GenUi(this, eventServer.getJrpc());
 
         return Service.START_NOT_STICKY;
     }

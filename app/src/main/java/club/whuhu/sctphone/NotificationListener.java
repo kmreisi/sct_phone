@@ -1,8 +1,8 @@
 package club.whuhu.sctphone;
 
 import android.app.Notification;
+import android.app.PendingIntent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -16,69 +16,30 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Phaser;
 
 import club.whuhu.jrpc.JRPC;
 
 public class NotificationListener extends NotificationListenerService {
 
-    public static Bitmap drawableToBitmap (Drawable drawable) {
-        Bitmap bitmap = null;
+    public static NotificationListener INSTANCE;
 
-        if (drawable instanceof BitmapDrawable) {
-            BitmapDrawable bitmapDrawable = (BitmapDrawable) drawable;
-            if(bitmapDrawable.getBitmap() != null) {
-                return bitmapDrawable.getBitmap();
-            }
-        }
-
-        if(drawable.getIntrinsicWidth() <= 0 || drawable.getIntrinsicHeight() <= 0) {
-            bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888); // Single color bitmap will be created of 1x1 pixel
-        } else {
-            bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        }
-
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
-        return bitmap;
-    }
-
-    public static String toMd5Hash(byte[] data) {
-        MessageDigest m = null;
-
-        try {
-            m = MessageDigest.getInstance("MD5");
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
-
-        m.update(data,0,data.length);
-        String hash = new BigInteger(1, m.digest()).toString(16);
-        return hash;
-    }
-
-    byte[] toPng(Bitmap bitmap) {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, byteArrayOutputStream);
-        return byteArrayOutputStream.toByteArray();
-    }
-
-    String toBase(byte[] data) {
-        return Base64.encodeToString(data, Base64.DEFAULT);
+    public NotificationListener() {
+        INSTANCE = this;
     }
 
     public String getTitle(Bundle extras, String fallback) {
         CharSequence chars =
                 extras.getCharSequence(Notification.EXTRA_TITLE_BIG);
-        if(chars != null && chars.length() > 0) {
+        if (chars != null && chars.length() > 0) {
             return chars.toString();
         }
         chars =
                 extras.getCharSequence(Notification.EXTRA_TITLE);
-        if(chars != null && chars.length() > 0) {
+        if (chars != null && chars.length() > 0) {
             return chars.toString();
         }
 
@@ -88,7 +49,7 @@ public class NotificationListener extends NotificationListenerService {
     public String getText(Bundle extras, String fallback) {
         CharSequence[] lines =
                 extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
-        if(lines != null && lines.length > 0) {
+        if (lines != null && lines.length > 0) {
             StringBuilder sb = new StringBuilder();
             for (CharSequence msg : lines)
                 if (msg != null && msg.length() > 0) {
@@ -99,30 +60,68 @@ public class NotificationListener extends NotificationListenerService {
         }
         CharSequence chars =
                 extras.getCharSequence(Notification.EXTRA_TEXT);
-        if(chars != null && chars.length() > 0) {
+        if (chars != null && chars.length() > 0) {
             return chars.toString();
         }
 
         return fallback;
     }
 
-    public static Map<String, String> icons = new HashMap<>();
 
-    public String updateIcon(Icon icon) {
-        Drawable drawable = icon.loadDrawable(this);
-        if (drawable == null) {
+    public static StatusBarNotification getNotification(int id) {
+        if (INSTANCE != null) {
+            for (StatusBarNotification notification : INSTANCE.getActiveNotifications()) {
+                if (notification.getId() == id) {
+                    return notification;
+                }
+            }
+            for (StatusBarNotification notification : INSTANCE.getSnoozedNotifications()) {
+                if (notification.getId() == id) {
+                    return notification;
+                }
+            }
+        }
+        return null;
+    }
+
+    public static void sendActiveNotifications() {
+        if (INSTANCE == null) {
+            return;
+        }
+
+        for (StatusBarNotification notification : INSTANCE.getActiveNotifications()) {
+            INSTANCE.onNotificationPosted(notification);
+        }
+        for (StatusBarNotification notification : INSTANCE.getSnoozedNotifications()) {
+            INSTANCE.onNotificationPosted(notification);
+        }
+
+    }
+
+    public static PendingIntent getNotificationAction(Object params) {
+
+        Map<String, Object> data = (Map<String, Object>) params;
+        long id = (long) data.get("id");
+        String title = (String) data.get("title");
+
+        StatusBarNotification notification = getNotification((int) id);
+        if (notification == null) {
             return null;
         }
 
-        byte[] png = toPng(drawableToBitmap(drawable));
-        String hash = toMd5Hash(png);
-        if(!icons.containsKey(hash)) {
-            icons.put(hash, toBase(png));
+        Notification.Action[] actions = notification.getNotification().actions;
+        if (actions == null) {
+            return null;
         }
 
-        return hash;
-    }
+        for (Notification.Action action : actions) {
+            if (action.title.equals(title)) {
+                return action.actionIntent;
+            }
+        }
 
+        return null;
+    }
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
@@ -145,7 +144,18 @@ public class NotificationListener extends NotificationListenerService {
             params.put("id", sbn.getId());
             params.put("title", title);
             params.put("text", text);
-            params.put("icon_md5", updateIcon(icon));
+            params.put("icon_md5", IconLoader.getInstance().getIconMd5(icon));
+
+            if (notification.actions != null) {
+                List<Object> actions = new ArrayList<>();
+                for (Notification.Action action : notification.actions) {
+                    Map<String, Object> actionData = new HashMap<>();
+                    actionData.put("title", action.title.toString());
+                    //   actionData.put("icon_md5", IconLoader.getInstance().getIconMd5(action.getIcon()));
+                    actions.add(actionData);
+                }
+                params.put("actions", actions);
+            }
 
             AgentService.send(new JRPC.Notification("notification", params));
         } catch (Exception e) {
@@ -156,6 +166,11 @@ public class NotificationListener extends NotificationListenerService {
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
         System.out.println("XXXXXXXXXXXXXXXX EVENT removed: " + sbn.getId());
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", sbn.getId());
+
+        AgentService.send(new JRPC.Notification("notification_removed", params));
 
     }
 }
