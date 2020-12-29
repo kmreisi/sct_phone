@@ -85,6 +85,13 @@ public class AgentService extends Service {
             }
         });
 
+        eventServer.getJrpc().register("notification_cancel", new JRPC.Method() {
+            @Override
+            public void call(JRPC.Response r, Object params) throws JRPC.Error {
+                NotificationListener.hideNotification(params);
+            }
+        });
+
         IconLoader.getInstance().init(this, iconServer.getJrpc());
     }
 

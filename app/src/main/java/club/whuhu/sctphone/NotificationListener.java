@@ -68,15 +68,15 @@ public class NotificationListener extends NotificationListenerService {
     }
 
 
-    public static StatusBarNotification getNotification(int id) {
+    public static StatusBarNotification getNotification(String key) {
         if (INSTANCE != null) {
             for (StatusBarNotification notification : INSTANCE.getActiveNotifications()) {
-                if (notification.getId() == id) {
+                if (key.equals(notification.getKey())) {
                     return notification;
                 }
             }
             for (StatusBarNotification notification : INSTANCE.getSnoozedNotifications()) {
-                if (notification.getId() == id) {
+                if (key.equals(notification.getKey())) {
                     return notification;
                 }
             }
@@ -101,10 +101,10 @@ public class NotificationListener extends NotificationListenerService {
     public static PendingIntent getNotificationAction(Object params) {
 
         Map<String, Object> data = (Map<String, Object>) params;
-        long id = (long) data.get("id");
+        String key = (String) data.get("key");
         String title = (String) data.get("title");
 
-        StatusBarNotification notification = getNotification((int) id);
+        StatusBarNotification notification = getNotification(key);
         if (notification == null) {
             return null;
         }
@@ -123,7 +123,20 @@ public class NotificationListener extends NotificationListenerService {
         return null;
     }
 
-    @Override
+    public static void hideNotification(Object params) {
+        Map<String, Object> data = (Map<String, Object>) params;
+        String key = (String) data.get("key");
+
+        StatusBarNotification notification = getNotification(key);
+        if (notification == null) {
+            return;
+        }
+
+        INSTANCE.cancelNotification(key);
+    }
+
+
+        @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         try {
 
@@ -141,10 +154,15 @@ public class NotificationListener extends NotificationListenerService {
             }
 
             Map<String, Object> params = new HashMap<>();
-            params.put("id", sbn.getId());
+            params.put("key", sbn.getKey());
             params.put("title", title);
             params.put("text", text);
             params.put("icon_md5", IconLoader.getInstance().getIconMd5(icon));
+
+            String channel = notification.getChannelId();
+
+            boolean showOnDash = channel.contains("foreground") || channel.contains("playback");
+            params.put("dash", showOnDash);
 
             if (notification.actions != null) {
                 List<Object> actions = new ArrayList<>();
@@ -168,7 +186,7 @@ public class NotificationListener extends NotificationListenerService {
         System.out.println("XXXXXXXXXXXXXXXX EVENT removed: " + sbn.getId());
 
         Map<String, Object> params = new HashMap<>();
-        params.put("id", sbn.getId());
+        params.put("key", sbn.getKey());
 
         AgentService.send(new JRPC.Notification("notification_removed", params));
 
