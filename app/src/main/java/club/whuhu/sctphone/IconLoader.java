@@ -160,6 +160,17 @@ public class IconLoader {
         return null;
     }
 
+    public String getIconMd5(Drawable drawable) {
+        if (drawable == null) {
+            return null;
+        }
+        try {
+            return getIconMd5(drawableToBitmap(drawable));
+        } catch (Throwable e) {
+        }
+        return null;
+    }
+
     public String getIconMd5(Object icon) {
         if (icon instanceof Icon) {
             return getIconMd5((Icon) icon);
@@ -172,6 +183,15 @@ public class IconLoader {
         if (icon instanceof ImageUri) {
             // the icon will be fetched from spotify on client request
             return ((ImageUri) icon).raw;
+        }
+
+        if (icon instanceof Drawable) {
+            // the icon will be fetched from spotify on client request
+            return getIconMd5((Drawable) icon);
+        }
+
+        if (icon instanceof Integer) {
+            return getIconMd5(context.getResources().getDrawable((Integer)icon, null));
         }
 
         return null;

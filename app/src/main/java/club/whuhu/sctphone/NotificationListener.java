@@ -135,12 +135,44 @@ public class NotificationListener extends NotificationListenerService {
         INSTANCE.cancelNotification(key);
     }
 
+    private String getActionIconMd5(Notification.Action action) {
+        if (action.title == null) {
+            return null;
+        }
+        String title = action.title.toString().toLowerCase();
+        if (title.contains("exit navigation") || title.contains("don't play this")) {
+            return IconLoader.getInstance().getIconMd5(R.drawable.trash);
+        }
+        if (title.contains("like")) {
+            return IconLoader.getInstance().getIconMd5(R.drawable.thumbs_up);
+        }
+        if (title.contains("play")) {
+            return IconLoader.getInstance().getIconMd5(R.drawable.play);
+        }
+        if (title.contains("pause")) {
+            return IconLoader.getInstance().getIconMd5(R.drawable.pause);
+        }
+        if (title.contains("previous")) {
+            return IconLoader.getInstance().getIconMd5(R.drawable.skip_back);
+        }
+        if (title.contains("next")) {
+            return IconLoader.getInstance().getIconMd5(R.drawable.skip_forward);
+        }
+
+        return IconLoader.getInstance().getIconMd5(action.getIcon());
+    }
+
 
         @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         try {
 
             Notification notification = sbn.getNotification();
+
+            if (sbn.getKey() != null && sbn.getKey().contains("club.whuhu.")) {
+                // nothing to do, ignore our foreground service icon
+                return;
+            }
 
             Bundle extras = notification.extras;
 
@@ -169,7 +201,7 @@ public class NotificationListener extends NotificationListenerService {
                 for (Notification.Action action : notification.actions) {
                     Map<String, Object> actionData = new HashMap<>();
                     actionData.put("title", action.title.toString());
-                    //   actionData.put("icon_md5", IconLoader.getInstance().getIconMd5(action.getIcon()));
+                    actionData.put("icon_md5", getActionIconMd5(action));
                     actions.add(actionData);
                 }
                 params.put("actions", actions);
